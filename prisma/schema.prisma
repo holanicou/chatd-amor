@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  username        String   @unique
+  email           String?  @unique
+  name            String?
+  passwordHash    String
+  avatar          String?
+  isOnline        Boolean  @default(false)
+  lastSeen        DateTime?
+  theme           String?  @default("light")
+  customBackground String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  messages        Message[]
+  reactions       Reaction[]
+  sentReadReceipts ReadReceipt[] @relation("SentReadReceipts")
+  receivedReadReceipts ReadReceipt[] @relation("ReceivedReadReceipts")
+
+  @@map("users")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  type        MessageType @default(TEXT)
+  fileUrl     String?
+  fileName    String?
+  fileSize    Int?
+  isEdited    Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+  editedAt    DateTime?
+  timestamp   DateTime @default(now())
+  userId      String
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reactions   Reaction[]
+  readReceipts ReadReceipt[]
+
+  @@map("messages")
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@map("reactions")
+}
+
+model ReadReceipt {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  senderId  String?
+  readAt    DateTime @default(now())
+
+  // Relations
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation("ReceivedReadReceipts", fields: [userId], references: [id], onDelete: Cascade)
+  sender    User?    @relation("SentReadReceipts", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@map("read_receipts")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VOICE
+  VIDEO
+}
